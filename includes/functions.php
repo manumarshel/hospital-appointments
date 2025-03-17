@@ -381,7 +381,7 @@ add_action('wp_ajax_nopriv_save_appointment', 'ha_save_appointment');
                           $("#appointmentForm")[0].reset();
                       }, 1000);
                   } else {
-                      alert("Failed to book appointment. Please try again.");
+                      alert("Email Address Have Already an Appointment kindly please do later!");
                   }
               },
               error: function (xhr, status, error) {
