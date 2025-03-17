@@ -114,36 +114,28 @@ jQuery(document).ready(function ($) {
 
         $.ajax({
             type: "POST",
-            url: "<?php echo admin_url('admin-ajax.php'); ?>",
+            url: ha_ajax.ajaxurl, // ✅ Use localized AJAX URL
             data: formData + "&action=save_appointment",
             dataType: "json",
             beforeSend: function () {
-                console.log("Sending appointment request...", formData);
-                $("#appointmentForm button[type='submit']").prop("disabled", true); // Disable submit button
+                $("#appointmentForm button[type='submit']").prop("disabled", true);
             },
             success: function (response) {
-                console.log("Server Response:", response);
-
                 if (response.success) {
-                    // ✅ Show success message inside the modal
-                    $("#appointmentSuccess").text(response.message).fadeIn().delay(2000).fadeOut();
-
-                    // ✅ Close the modal after a short delay
+                    $("#appointmentSuccess").text(response.message).fadeIn().delay(3000).fadeOut();
                     setTimeout(function () {
-                        $("#appointmentModal").modal("hide"); // Close the Bootstrap modal
-                        $("#appointmentForm")[0].reset(); // Reset the form
+                        $("#appointmentForm")[0].reset();
                     }, 2000);
                 } else {
-                    // ✅ Show error message inside modal (if duplicate or failure)
                     $("#appointmentError").text(response.message).fadeIn().delay(3000).fadeOut();
                 }
             },
             error: function (xhr, status, error) {
-                console.log("AJAX Error:", xhr.responseText);
+                console.log("❌ AJAX Error:", xhr.responseText);
                 $("#appointmentError").text("An error occurred while booking the appointment.").fadeIn().delay(3000).fadeOut();
             },
             complete: function () {
-                $("#appointmentForm button[type='submit']").prop("disabled", false); // Re-enable submit button
+                $("#appointmentForm button[type='submit']").prop("disabled", false);
             }
         });
     });
