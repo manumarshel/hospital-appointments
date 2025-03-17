@@ -12,87 +12,9 @@
   if (!defined('ABSPATH')) {
       exit; // Exit if accessed directly.
   }
-
   
-
-
-
-
-// ✅ Generate a Unique License Key
-function ha_generate_license_key($domain) {
-  global $wpdb;
-  $table_name = $wpdb->prefix . 'plugin_licenses';
-  $license_key = strtoupper(md5(uniqid(rand(), true))); // Generate unique key
-
-  // Insert license key into the database
-  $wpdb->insert($table_name, [
-      'license_key' => $license_key,
-      'domain' => $domain,
-      'status' => 'active'
-  ]);
-
-  return $license_key;
-}
-
-// ✅ Create License Management Page
-function ha_license_manager_page() {
-  ?>
-  <div class="wrap">
-      <h2>Generate License Key</h2>
-      <form method="post">
-          <table class="form-table">
-              <tr>
-                  <th><label for="domain">Domain Name:</label></th>
-                  <td>
-                      <input type="text" name="domain" id="domain" placeholder="example.com" required />
-                  </td>
-              </tr>
-          </table>
-          <button type="submit" name="generate_license" class="button button-primary">Generate License</button>
-      </form>
-
-      <?php
-      // ✅ Generate and display the license key
-      if (isset($_POST['generate_license']) && !empty($_POST['domain'])) {
-          $domain = sanitize_text_field($_POST['domain']);
-          $license_key = ha_generate_license_key($domain);
-          echo "<h3>Generated License Key: <code>$license_key</code></h3>";
-      }
-      ?>
-  </div>
-  <?php
-}
-
-// ✅ Add License Manager to Admin Menu
-function ha_add_license_manager_menu() {
-  add_submenu_page('options-general.php', 'License Manager', 'License Manager', 'manage_options', 'ha-license-manager', 'ha_license_manager_page');
-}
-add_action('admin_menu', 'ha_add_license_manager_menu');
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// Prevent plugin activation if the license is invalid
-function ha_check_license_before_activation() {
-    if (!ha_verify_license()) {
-        wp_die('Invalid License Key. Please enter a valid key to activate.');
-    }
-}
-register_activation_hook(__FILE__, 'ha_check_license_before_activation');  
   // ✅ Create Database Tables on Activation
+  
   function ha_create_tables() {
       global $wpdb;
       $charset_collate = $wpdb->get_charset_collate();
@@ -126,6 +48,9 @@ register_activation_hook(__FILE__, 'ha_check_license_before_activation');
   // ✅ Register Activation Hook in `hospital-appointments.php`
   register_activation_hook(__FILE__, 'ha_create_tables');
   add_action('init', 'ha_create_tables'); // ✅ Runs on every page load if tables are missing
+  
+  
+  
   // ✅ Save Doctor (Add/Edit)
   function ha_save_doctor() {
       global $wpdb;
@@ -166,79 +91,88 @@ register_activation_hook(__FILE__, 'ha_check_license_before_activation');
       }
   }
   add_action('wp_ajax_delete_doctor', 'ha_delete_doctor');
+
+
+  // DUPLICATE FORM SUBMISSION 
   
-  // ✅ Save Appointment with Duplicate Check AND EMAIL SEND
   if (!function_exists('ha_save_appointment')) {
-      function ha_save_appointment() {
-          global $wpdb;
-          $table_name = $wpdb->prefix . 'ha_appointments';
-  
-          // Check for duplicate booking (same doctor, date, and time)
-          $existing = $wpdb->get_var($wpdb->prepare(
-              "SELECT COUNT(*) FROM $table_name WHERE doctor_name = %s AND appointment_date = %s AND appointment_time = %s",
-              sanitize_text_field($_POST['doctor_name']),
-              sanitize_text_field($_POST['appointment_date']),
-              sanitize_text_field($_POST['appointment_time'])
-          ));
-  
-          if ($existing > 0) {
-              wp_send_json_error(['message' => 'This time slot is already booked. Please choose a different time.']);
-          }
-  
-          // Insert appointment into DB
-          $data = [
-              'patient_name'     => sanitize_text_field($_POST['patient_name']),
-              'patient_email'    => sanitize_email($_POST['patient_email']),
-              'doctor_name'      => sanitize_text_field($_POST['doctor_name']),
-              'appointment_date' => sanitize_text_field($_POST['appointment_date']),
-              'appointment_time' => sanitize_text_field($_POST['appointment_time']),
-              'status'           => 'Pending'
-          ];
-  
-          $inserted = $wpdb->insert($table_name, $data);
-  
-          if ($inserted) {
-              // ✅ Patient Email Confirmation
-              $to = $data['patient_email'];
-              $subject = "Appointment Confirmation - " . get_bloginfo('name');
-              $message = "Dear " . $data['patient_name'] . ",\n\n";
-              $message .= "Your appointment with Dr. " . $data['doctor_name'] . " has been scheduled.\n";
-              $message .= "📅 Date: " . $data['appointment_date'] . "\n";
-              $message .= "⏰ Time: " . $data['appointment_time'] . "\n\n";
-              $message .= "Thank you for choosing our hospital!\n";
-              $message .= get_bloginfo('name') . " Team";
-  
-              $headers = ['Content-Type: text/plain; charset=UTF-8'];
-  
-              wp_mail($to, $subject, $message, $headers);
-  
-              // ✅ Admin Email Notification (Optional)
-              $admin_email = get_option('admin_email'); // Get WordPress admin email
-              $admin_subject = "New Appointment Scheduled";
-              $admin_message = "A new appointment has been booked.\n\n";
-              $admin_message .= "👤 Patient: " . $data['patient_name'] . "\n";
-              $admin_message .= "📧 Email: " . $data['patient_email'] . "\n";
-              $admin_message .= "👨‍⚕️ Doctor: " . $data['doctor_name'] . "\n";
-              $admin_message .= "📅 Date: " . $data['appointment_date'] . "\n";
-              $admin_message .= "⏰ Time: " . $data['appointment_time'] . "\n";
-  
-              wp_mail($admin_email, $admin_subject, $admin_message, $headers);
-  
-              // ✅ Send success response
-              wp_send_json_success(['message' => 'Appointment booked successfully! A confirmation email has been sent.']);
+    function ha_save_appointment() {
+        global $wpdb;
+        $table_name = $wpdb->prefix . 'ha_appointments';
+
+        ob_clean(); // ✅ Prevent any previous output
+
+        $existing = $wpdb->get_var($wpdb->prepare(
+            "SELECT COUNT(*) FROM $table_name WHERE doctor_name = %s AND appointment_date = %s AND appointment_time = %s",
+            sanitize_text_field($_POST['doctor_name']),
+            sanitize_text_field($_POST['appointment_date']),
+            sanitize_text_field($_POST['appointment_time'])
+        ));
+
+        if ($existing > 0) {
+            wp_send_json_error(['message' => 'This time slot is already booked. Please choose a different time.']);
+            exit;
+        }
+
+        $data = [
+            'patient_name'     => sanitize_text_field($_POST['patient_name']),
+            'patient_email'    => sanitize_email($_POST['patient_email']),
+            'doctor_name'      => sanitize_text_field($_POST['doctor_name']),
+            'appointment_date' => sanitize_text_field($_POST['appointment_date']),
+            'appointment_time' => sanitize_text_field($_POST['appointment_time']),
+            'status'           => 'Pending'
+        ];
+
+        $inserted = $wpdb->insert($table_name, $data);
+
+        if ($inserted) {
+            // ✅ Patient Email Confirmation
+            $to = $data['patient_email'];
+            $subject = "Appointment Confirmation - " . get_bloginfo('name');
+            $message = "Dear " . $data['patient_name'] . ",\n\n";
+            $message .= "Your appointment with Dr. " . $data['doctor_name'] . " has been scheduled.\n";
+            $message .= "📅 Date: " . $data['appointment_date'] . "\n";
+            $message .= "⏰ Time: " . $data['appointment_time'] . "\n\n";
+            $message .= "Thank you for choosing our hospital!\n";
+            $message .= get_bloginfo('name') . " Team";
+
+            $headers = ['Content-Type: text/plain; charset=UTF-8'];
+
+            $mail_sent = wp_mail($to, $subject, $message, $headers); // ✅ Store mail status
+
+            // ✅ Admin Email Notification
+            $admin_email = get_option('admin_email');
+            $admin_subject = "New Appointment Scheduled";
+            $admin_message = "A new appointment has been booked.\n\n";
+            $admin_message .= "👤 Patient: " . $data['patient_name'] . "\n";
+            $admin_message .= "📧 Email: " . $data['patient_email'] . "\n";
+            $admin_message .= "👨‍⚕️ Doctor: " . $data['doctor_name'] . "\n";
+            $admin_message .= "📅 Date: " . $data['appointment_date'] . "\n";
+            $admin_message .= "⏰ Time: " . $data['appointment_time'] . "\n";
+
+            wp_mail($admin_email, $admin_subject, $admin_message, $headers);
+
+            // ✅ Ensure success message is always sent
+            if ($inserted) {
+              wp_send_json_success(['message' => 'Appointment booked successfully!']);
           } else {
-              wp_send_json_error(['message' => 'Failed to book appointment.']);
+              error_log("❌ Database Insert Error: " . $wpdb->last_error); // Logs exact DB error
+              wp_send_json_error(['message' => 'Failed to book appointment. Database error: ' . $wpdb->last_error]);
           }
-      }
-  }
-  
-  // ✅ Hook the function to AJAX requests
-  add_action('wp_ajax_save_appointment', 'ha_save_appointment');
-  add_action('wp_ajax_nopriv_save_appointment', 'ha_save_appointment');
-  
+          
+        } else {
+            wp_send_json_error(['message' => 'Failed to book appointment.']);
+        }
+
+        exit; // ✅ Always exit after sending JSON response
+    }
+}
+add_action('wp_ajax_save_appointment', 'ha_save_appointment');
+add_action('wp_ajax_nopriv_save_appointment', 'ha_save_appointment');
+
+
   
   // ✅ Appointment Form Shortcode `[hospital_appointment_form]`
-  
   function ha_appointment_form() {
       ob_start();
       global $wpdb;
@@ -387,8 +321,6 @@ register_activation_hook(__FILE__, 'ha_check_license_before_activation');
               filterCalendarDates();
           }
       });
-  
-      // ✅ Filter Calendar Dates Based on Selected Day
   // ✅ Filter Calendar Dates Based on Selected Day
   function filterCalendarDates() {
   $("#appointmentDate").attr("min", new Date().toISOString().split("T")[0]);
@@ -445,6 +377,8 @@ return ob_get_clean();
 }
 add_shortcode('hospital_appointment_form', 'ha_appointment_form');
 // ✅ Update Appointment Status (Admin AJAX);
+
+// appointment changing in admin script 
 function ha_update_appointment_status() {
 global $wpdb;
 $table_name = $wpdb->prefix . 'ha_appointments';
@@ -462,3 +396,13 @@ wp_send_json_error();
 }
 }
 add_action('wp_ajax_update_appointment_status', 'ha_update_appointment_status');
+
+
+
+// ✅ Ensure AJAX URL is available for frontend scripts
+function ha_localize_ajax_script() {
+  wp_localize_script('ha-custom-scripts', 'ha_ajax', ['ajaxurl' => admin_url('admin-ajax.php')]);
+}
+add_action('wp_enqueue_scripts', 'ha_localize_ajax_script');
+
+
