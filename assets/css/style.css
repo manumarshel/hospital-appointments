@@ -477,3 +477,8 @@ div#qbox-container label.form-label {
         min-height: 460px !important;
     }
   }
+
+  .btn-group-toggle label.active, 
+label.btn.day-btn.btn-primary.active {
+    background: black !important;
+}
