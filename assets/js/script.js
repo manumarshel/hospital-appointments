@@ -1,11 +1,3 @@
-/**
- * Plugin Name: Hospital Appointments
- * Description: A custom WordPress plugin for managing hospital appointments.
- * Version: 1.0
- * Author: Your Name
- * Developer: Manu Marshal
- * Developer Url: https://manumarshal.com/
- */
 jQuery(document).ready(function ($) {
     // Handle form submission (Add/Edit Doctor)
     $("#doctorForm").on("submit", function (e) {
@@ -15,25 +7,34 @@ jQuery(document).ready(function ($) {
 
         $.ajax({
             type: "POST",
-            url: ajaxurl,
+            url: ajaxurl, // Ensure ajaxurl is defined globally
             data: formData + "&action=save_doctor",
+            dataType: "json",
+            beforeSend: function () {
+                console.log("Sending data...", formData);
+            },
             success: function (response) {
+                console.log("Server Response:", response); // Debug the full response
+        
                 if (response.success) {
-                    $("#successMessage").html('<div class="updated notice is-dismissible"><p>Doctor saved successfully!</p></div>');
-                    $("#successMessage").fadeIn().delay(1500).fadeOut(); 
-
-                    // Close modal after successful save
+                    let message = $("#doctor_id").val() ? "Doctor updated successfully!" : "New doctor added successfully!";
+                    $("#successMessage").html('<div class="updated notice is-dismissible"><p>' + message + '</p></div>');
+                    $("#successMessage").fadeIn().delay(2000).fadeOut();
                     $("#doctorModal").modal("hide");
-
-                    // Reload the doctor list smoothly
+        
                     setTimeout(function () {
                         location.reload();
                     }, 1500);
                 } else {
-                    alert("Failed to save doctor");
+                    alert("Error: " + (response.data ? response.data : "Failed to save doctor"));
                 }
+            },
+            error: function (xhr, status, error) {
+                console.log("AJAX Error:", xhr.responseText); // Log raw response
+                alert("AJAX Error: " + error);
             }
         });
+        
     });
 
     // Open modal for adding a doctor
@@ -101,75 +102,6 @@ jQuery(document).ready(function ($) {
                     }
                 }
             });
-        }
-    });
-});
-
-
-// APPOINTMENT DUPLICATE CHECK 
-jQuery(document).ready(function ($) {
-    $("#appointmentForm").on("submit", function (e) {
-        e.preventDefault();
-        var formData = $(this).serialize();
-
-        $.ajax({
-            type: "POST",
-            url: ha_ajax.ajaxurl, // ✅ Use localized AJAX URL
-            data: formData + "&action=save_appointment",
-            dataType: "json",
-            beforeSend: function () {
-                $("#appointmentForm button[type='submit']").prop("disabled", true);
-            },
-            success: function (response) {
-                if (response.success) {
-                    $("#appointmentSuccess").text(response.message).fadeIn().delay(3000).fadeOut();
-                    setTimeout(function () {
-                        $("#appointmentForm")[0].reset();
-                    }, 2000);
-                } else {
-                    $("#appointmentError").text(response.message).fadeIn().delay(3000).fadeOut();
-                }
-            },
-            error: function (xhr, status, error) {
-                console.log("❌ AJAX Error:", xhr.responseText);
-                $("#appointmentError").text("An error occurred while booking the appointment.").fadeIn().delay(3000).fadeOut();
-            },
-            complete: function () {
-                $("#appointmentForm button[type='submit']").prop("disabled", false);
-            }
-        });
-    });
-});
-
-
-
-
-jQuery(document).ready(function ($) {
-    $("#doctorSelect").change(function () {
-        let selectedDoctor = $(this).find(":selected");
-        let availableDays = selectedDoctor.data("availability");
-        let daysArray = availableDays ? availableDays.split(",") : [];
-
-        // Reset dropdown
-        $("#availableDaySelect").prop("disabled", true);
-        $("#availableDaySelect").val("");
-
-        // Enable only available days
-        $("#availableDaySelect option").each(function () {
-            let dayValue = $(this).val();
-            if (dayValue && daysArray.includes(dayValue)) {
-                $(this).prop("disabled", false);
-            } else {
-                $(this).prop("disabled", true);
-            }
-        });
-
-        // Show the section only if there are available days
-        if (daysArray.length > 0) {
-            $("#availableDaysSection").fadeIn();
-            $("#availableDaySelect").prop("disabled", false);
-        } else {
-            $("#availableDaysSection").fadeOut();
         }
     });
 });
